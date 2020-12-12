@@ -15,43 +15,7 @@ Copyright   :   Copyright (c) Facebook Technologies, LLC and its affiliates. All
 extern "C" {
 #endif
 
-// Extension 89
-#ifndef XR_KHR_loader_init
-#define XR_KHR_loader_init 1
-#define XR_KHR_loader_init_SPEC_VERSION 1
-#define XR_KHR_LOADER_INIT_EXTENSION_NAME "XR_KHR_loader_init"
-typedef struct XR_MAY_ALIAS XrLoaderInitInfoBaseHeaderKHR {
-    XrStructureType type;
-    const void* XR_MAY_ALIAS next;
-} XrLoaderInitInfoBaseHeaderKHR;
-
-typedef XrResult(XRAPI_PTR* PFN_xrInitializeLoaderKHR)(
-    const XrLoaderInitInfoBaseHeaderKHR* loaderInitInfo);
-
-#ifndef XR_NO_PROTOTYPES
-XRAPI_ATTR XrResult XRAPI_CALL
-xrInitializeLoaderKHR(const XrLoaderInitInfoBaseHeaderKHR* loaderInitInfo);
-#endif
-
-#endif // XR_KHR_loader_init
-
-// Extension 90
-#ifndef XR_KHR_loader_init_android
-#ifdef XR_USE_PLATFORM_ANDROID
-
-#define XR_KHR_loader_init_android 1
-#define XR_KHR_loader_init_android_SPEC_VERSION 1
-#define XR_KHR_LOADER_INIT_ANDROID_EXTENSION_NAME "XR_KHR_loader_init_android"
-typedef struct XrLoaderInitInfoAndroidKHR {
-    XrStructureType type;
-    const void* XR_MAY_ALIAS next;
-    void* XR_MAY_ALIAS applicationVM;
-    void* XR_MAY_ALIAS applicationContext;
-} XrLoaderInitInfoAndroidKHR;
-
-static const XrStructureType XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR = (XrStructureType)1000089000;
-#endif /* XR_USE_PLATFORM_ANDROID */
-#endif // XR_KHR_loader_init_android
+// XR_KHR_loader_init and XR_KHR_loader_init_android now available in 1.0.11 public spec.
 
 #ifdef __cplusplus
 }

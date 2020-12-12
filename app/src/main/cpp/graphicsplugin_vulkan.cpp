@@ -1756,8 +1756,12 @@ void Swapchain::Present(VkQueue queue, VkSemaphore drawComplete) {
                 VkPhysicalDeviceFeatures features{};
                 memcpy(&features, createInfo->vulkanCreateInfo->pEnabledFeatures, sizeof(features));
 
-                // Setting this quiets down a validation error triggered by the Oculus runtime
-                features.shaderStorageImageMultisample = VK_FALSE;
+                VkPhysicalDeviceFeatures availableFeatures{};
+                vkGetPhysicalDeviceFeatures(m_vkPhysicalDevice, &availableFeatures);
+                if(availableFeatures.shaderStorageImageMultisample == VK_TRUE) {
+                    // Setting this quiets down a validation error triggered by the Oculus runtime
+                    features.shaderStorageImageMultisample = VK_TRUE;
+                }
 
                 VkDeviceCreateInfo deviceInfo{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
                 memcpy(&deviceInfo, createInfo->vulkanCreateInfo, sizeof(deviceInfo));

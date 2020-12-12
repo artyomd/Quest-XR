@@ -13,7 +13,7 @@
 #endif
 
 namespace {
-Log::Level g_minSeverity{Log::Level::Info};
+Log::Level g_minSeverity{Log::Level::Verbose};
 std::mutex g_logLock;
 }  // namespace
 
