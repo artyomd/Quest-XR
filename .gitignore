@@ -86,3 +86,6 @@ lint/tmp/
 
 #macos DS_Store
 .DS_Store
+
+#compiled spirv files
+*.spv
