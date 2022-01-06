@@ -1,0 +1,9 @@
+[submodule "app/external/fmt"]
+	path = app/external/fmt
+	url = git@github.com:fmtlib/fmt.git
+[submodule "app/external/spirv-reflect/SPIRV-Reflect"]
+	path = app/external/spirv-reflect/SPIRV-Reflect
+	url = git@github.com:KhronosGroup/SPIRV-Reflect.git
+[submodule "app/external/glm"]
+	path = app/external/glm
+	url = https://github.com/g-truc/glm.git

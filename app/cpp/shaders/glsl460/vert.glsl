@@ -1,25 +1,17 @@
-#version 400
+#version 460
 #pragma shader_stage(vertex)
 #extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
 
-layout (std140, push_constant) uniform buf
-{
+layout(location = 0) in vec4 position;
+layout(location = 1) in vec4 color;
+
+layout(push_constant, std140) uniform UniformBufferObject {
     mat4 mvp;
-} ubuf;
-
-layout (location = 0) in vec3 Position;
-layout (location = 1) in vec3 Color;
-
-layout (location = 0) out vec4 oColor;
-out gl_PerVertex
-{
-    vec4 gl_Position;
 };
 
-void main()
-{
-    oColor.rgb  = Color.rgb;
-    oColor.a  = 1.0;
-    gl_Position = ubuf.mvp * vec4(Position, 1);
+layout(location = 0) out vec4 v_color;
+
+void main() {
+    v_color = color;
+    gl_Position = mvp * position;
 }

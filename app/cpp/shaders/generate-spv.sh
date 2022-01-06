@@ -14,7 +14,7 @@ for i in "${glslDir}"/*.glsl; do
   name=$(basename "$i" .glsl)
   spvFile="$spvDir"/"$name".spv
   spvHexFile="$spvHexDir"/"$name".spv
-  glslc --target-spv=spv1.3 -g "$i" -o "$spvFile"
+  glslc --target-spv=spv1.0 -g "$i" -o "$spvFile"
   spirv-opt -O "$spvFile" -o "$spvFile"
   xxd -i <"$spvFile" >"$spvHexFile"
 done

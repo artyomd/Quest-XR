@@ -23,8 +23,7 @@ add_custom_command(
         WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
 )
 
-set(SRC
-        shaders.cpp)
+set(SRC shaders.cpp)
 
 add_library(shaders STATIC ${SRC} ${SPV_FILES})
 

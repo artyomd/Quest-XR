@@ -1,2 +1,2 @@
 include ':app'
-rootProject.name = "Quest Demo"
+rootProject.name = "Quest XR"
