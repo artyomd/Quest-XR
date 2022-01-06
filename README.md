@@ -1,6 +1,6 @@
 # Quest XR
 
-This is a sample project that is using only OpenXR and Vulkan on the android platform and targets Oculus Quest 2 device. This project demonstrates how to create a native c++ only project with Gradle and utilize OpenXR runtime. The project was taken from the official [OpenXR SDK samples](https://github.com/KhronosGroup/OpenXR-SDK-Source).
+This is a sample project that is using only OpenXR and Vulkan on the android platform and targets Oculus Quest 2 device. This project demonstrates how to create a native c++ only project with Gradle and Cmake and utilize OpenXR runtime. The project was taken from the official [OpenXR SDK samples](https://github.com/KhronosGroup/OpenXR-SDK-Source).
 
 
 ### Building the project
