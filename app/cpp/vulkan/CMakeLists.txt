@@ -1,6 +1,4 @@
-cmake_minimum_required(VERSION 3.18.1)
-
-set(SRC
+add_library(vulkan-wrapper STATIC
         data_type.cpp
         vertex_buffer_layout.cpp
         vulkan_buffer.cpp
@@ -10,6 +8,8 @@ set(SRC
         vulkan_utils.cpp
         )
 
-add_library(vulkan-wrapper STATIC ${SRC})
-
-target_link_libraries(vulkan-wrapper spirv-reflect utils vulkan utils fmt)
+target_link_libraries(vulkan-wrapper
+        spdlog
+        spirv-reflect-static
+        vulkan
+        )

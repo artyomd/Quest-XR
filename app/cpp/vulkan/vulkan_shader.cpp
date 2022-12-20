@@ -1,5 +1,7 @@
 #include "vulkan_shader.hpp"
 
+#include <spdlog/fmt/fmt.h>
+
 vulkan::VulkanShader::VulkanShader(const std::shared_ptr<VulkanRenderingContext> &context,
                                    std::string sipr_v_shader_source,
                                    std::string entry_point_name,
@@ -26,7 +28,9 @@ vulkan::VulkanShader::VulkanShader(const std::shared_ptr<VulkanRenderingContext>
   SpvReflectResult
       result = spvReflectCreateShaderModule(code_.size(), code_.data(), &reflect_shader_module_);
 
-  CHECK(result == SPV_REFLECT_RESULT_SUCCESS, "spirv reflect failed")
+  if (result != SPV_REFLECT_RESULT_SUCCESS)[[unlikely]] {
+    throw std::runtime_error(fmt::format("spirv reflect failed with error {:#x}\n", result));
+  }
 
   uint32_t count = 0;
   result = spvReflectEnumerateEntryPointPushConstantBlocks(&reflect_shader_module_,
@@ -34,7 +38,9 @@ vulkan::VulkanShader::VulkanShader(const std::shared_ptr<VulkanRenderingContext>
                                                            &count,
                                                            nullptr);
 
-  CHECK(result == SPV_REFLECT_RESULT_SUCCESS, "spirv reflect failed")
+  if (result != SPV_REFLECT_RESULT_SUCCESS)[[unlikely]] {
+    throw std::runtime_error(fmt::format("spirv reflect failed with error {:#x}\n", result));
+  }
 
   std::vector<SpvReflectBlockVariable *> blocks(count);
   result = spvReflectEnumerateEntryPointPushConstantBlocks(&reflect_shader_module_,
@@ -42,9 +48,11 @@ vulkan::VulkanShader::VulkanShader(const std::shared_ptr<VulkanRenderingContext>
                                                            &count,
                                                            blocks.data());
 
-  CHECK(result == SPV_REFLECT_RESULT_SUCCESS, "spirv reflect failed")
+  if (result != SPV_REFLECT_RESULT_SUCCESS)[[unlikely]] {
+    throw std::runtime_error(fmt::format("spirv reflect failed with error {:#x}\n", result));
+  }
 
-  for (const auto &block:blocks) {
+  for (const auto &block: blocks) {
     VkPushConstantRange range{
         .stageFlags = GetVkShaderStageFlag(type),
         .offset = block->offset,

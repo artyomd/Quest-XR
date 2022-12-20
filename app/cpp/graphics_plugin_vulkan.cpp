@@ -1,7 +1,5 @@
 #include "graphics_plugin.hpp"
 
-#include "logger.hpp"
-
 #include "openxr_utils.hpp"
 
 #include <shaders.hpp>
@@ -15,6 +13,8 @@
 #include <array>
 #include <map>
 #include <memory>
+
+#include <spdlog/spdlog.h>
 
 namespace {
 const std::vector<float> kCubePositions = {
@@ -76,44 +76,6 @@ class VulkanGraphicsPlugin : public GraphicsPlugin {
     return {XR_KHR_VULKAN_ENABLE2_EXTENSION_NAME};
   }
 
-  void SetupDebugMessenger() {
-    VkDebugUtilsMessengerCreateInfoEXT create_info = {};
-    create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-    create_info.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
-        | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
-        | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-    create_info.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
-        | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
-        | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-    create_info.pfnUserCallback = [](VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-                                     VkDebugUtilsMessageTypeFlagsEXT,
-                                     const VkDebugUtilsMessengerCallbackDataEXT *p_callback_data,
-                                     void *) -> VKAPI_ATTR
-    VkBool32 VKAPI_CALL {
-      utils::logger::Level level = utils::logger::Level::VERBOSE;
-      switch (message_severity) {
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:level = utils::logger::Level::VERBOSE;
-          break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:level = utils::logger::Level::INFO;
-          break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:level = utils::logger::Level::WARNING;
-          break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:level = utils::logger::Level::FATAL;
-          break;
-        default:
-          utils::logger::Log(utils::logger::Level::WARNING,
-                             fmt::format("unknown message severity: {}",
-                                         message_severity));
-      }
-      utils::logger::Log(level, fmt::format("validation layer: {}", p_callback_data->pMessage));
-      return VK_FALSE;
-    };
-    if (CreateDebugUtilsMessengerExt(vulkan_instance_, &create_info, nullptr, &debug_messenger_)
-        != VK_SUCCESS) {
-      throw std::runtime_error("failed to set up debug messenger!");
-    }
-  }
-
   void InitializeDevice(XrInstance xr_instance, XrSystemId system_id) override {
     XrGraphicsRequirementsVulkan2KHR graphics_requirements{};
     graphics_requirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_VULKAN2_KHR;
@@ -121,8 +83,9 @@ class VulkanGraphicsPlugin : public GraphicsPlugin {
     PFN_xrGetVulkanGraphicsRequirements2KHR pfn_get_vulkan_graphics_requirements_khr = nullptr;
     CHECK_XRCMD(xrGetInstanceProcAddr(xr_instance, "xrGetVulkanGraphicsRequirements2KHR",
                                       reinterpret_cast<PFN_xrVoidFunction *>(&pfn_get_vulkan_graphics_requirements_khr)));
-    CHECK(pfn_get_vulkan_graphics_requirements_khr != nullptr,
-          "unable to obtain address of xrGetVulkanGraphicsRequirements2KHR");
+    if (pfn_get_vulkan_graphics_requirements_khr == nullptr) {
+      throw std::runtime_error("unable to obtain address of xrGetVulkanGraphicsRequirements2KHR");
+    }
     CHECK_XRCMD(pfn_get_vulkan_graphics_requirements_khr(xr_instance,
                                                          system_id,
                                                          &graphics_requirements));
@@ -130,25 +93,63 @@ class VulkanGraphicsPlugin : public GraphicsPlugin {
     PFN_xrCreateVulkanInstanceKHR pfn_xr_create_vulkan_instance_khr = nullptr;
     CHECK_XRCMD(xrGetInstanceProcAddr(xr_instance, "xrCreateVulkanInstanceKHR",
                                       reinterpret_cast<PFN_xrVoidFunction *>(&pfn_xr_create_vulkan_instance_khr)));
-    CHECK(pfn_xr_create_vulkan_instance_khr != nullptr,
-          "unable to obtain address of xrCreateVulkanInstanceKHR");
-
-    VkApplicationInfo app_info{};
-    app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    app_info.pApplicationName = "quest-xr";
-    app_info.applicationVersion = 1;
-    app_info.pEngineName = "quest-xr";
-    app_info.engineVersion = 1;
-    app_info.apiVersion =
-        VK_MAKE_VERSION(XR_VERSION_MAJOR(graphics_requirements.maxApiVersionSupported),
-                        XR_VERSION_MINOR(graphics_requirements.maxApiVersionSupported),
-                        XR_VERSION_PATCH(graphics_requirements.maxApiVersionSupported));
+    if (pfn_xr_create_vulkan_instance_khr == nullptr) {
+      throw std::runtime_error("unable to obtain address of xrCreateVulkanInstanceKHR");
+    }
+    VkApplicationInfo app_info = {
+        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+        .pApplicationName= "quest-xr",
+        .applicationVersion = 0u,
+        .pEngineName = "No Engine",
+        .engineVersion = 0u,
+        .apiVersion = VK_MAKE_VERSION(XR_VERSION_MAJOR(graphics_requirements.maxApiVersionSupported),
+                                      XR_VERSION_MINOR(graphics_requirements.maxApiVersionSupported),
+                                      XR_VERSION_PATCH(graphics_requirements.maxApiVersionSupported)),
+    };
 
     std::vector<const char *> layers{};
-    std::vector<const char *> extensions{};
+    std::vector<const char *> instance_extensions{};
+
+    bool debug_utils_enabled = false;
+    bool validation_features_enabled = false;
+    void *instance_create_info_next = nullptr;
+    std::vector<VkValidationFeatureEnableEXT>
+        enabled_features = {VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
+                            VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
+                            VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+                            VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,};
+    VkValidationFeaturesEXT validation_features_ext = {
+        .sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
+        .enabledValidationFeatureCount = static_cast<uint32_t>(enabled_features.size()),
+        .pEnabledValidationFeatures = enabled_features.data(),
+        .disabledValidationFeatureCount = 0,
+        .pDisabledValidationFeatures = nullptr,
+    };
+
 #if !defined(NDEBUG)
-    layers.emplace_back("VK_LAYER_KHRONOS_validation");
-    extensions.emplace_back("VK_EXT_debug_utils");
+    auto available_layers = vulkan::GetAvailableInstanceLayers();
+    for (const auto &kLayer: available_layers) {
+      if (strcmp(kLayer.layerName, "VK_LAYER_KHRONOS_validation") == 0) {
+        layers.emplace_back("VK_LAYER_KHRONOS_validation");
+        break;
+      }
+    }
+    if (!layers.empty()) {
+      auto available_extensions =
+          vulkan::GetAvailableInstanceExtensions("VK_LAYER_KHRONOS_validation");
+      for (const auto &kExt: available_extensions) {
+        if (strcmp(kExt.extensionName, VK_EXT_DEBUG_UTILS_EXTENSION_NAME) == 0) {
+          instance_extensions.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+          debug_utils_enabled = true;
+        } else if (strcmp(kExt.extensionName, VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME) == 0) {
+          instance_extensions.emplace_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
+          validation_features_enabled = true;
+        }
+      }
+    }
+    if (validation_features_enabled) {
+      instance_create_info_next = &validation_features_ext;
+    }
 #endif
 
     VkInstanceCreateInfo instance_create_info{};
@@ -156,8 +157,9 @@ class VulkanGraphicsPlugin : public GraphicsPlugin {
     instance_create_info.pApplicationInfo = &app_info;
     instance_create_info.enabledLayerCount = static_cast<uint32_t>(layers.size());
     instance_create_info.ppEnabledLayerNames = layers.empty() ? nullptr : layers.data();
-    instance_create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-    instance_create_info.ppEnabledExtensionNames = extensions.empty() ? nullptr : extensions.data();
+    instance_create_info.enabledExtensionCount = static_cast<uint32_t>(instance_extensions.size());
+    instance_create_info.ppEnabledExtensionNames =
+        instance_extensions.empty() ? nullptr : instance_extensions.data();
 
     XrVulkanInstanceCreateInfoKHR vulkan_instance_create_info_khr{};
     vulkan_instance_create_info_khr.type = XR_TYPE_VULKAN_INSTANCE_CREATE_INFO_KHR;
@@ -172,19 +174,71 @@ class VulkanGraphicsPlugin : public GraphicsPlugin {
                                                   &vulkan_instance_create_info_khr,
                                                   &vulkan_instance_,
                                                   &instance_create_result));
-    if (VK_FAILED(instance_create_result)) {
-      LOG_FATAL("unable to create vulkan instance");
+    if (instance_create_result != VK_SUCCESS) {
+      throw std::runtime_error("unable to create vulkan instance");
     }
 
-#if !defined(NDEBUG)
-    SetupDebugMessenger();
-#endif
+    if (debug_utils_enabled) {
+      VkDebugUtilsMessengerCreateInfoEXT create_info = {
+          .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+          .pNext = nullptr,
+          .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+              | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
+              | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+              | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+          .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
+              | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+              | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+          .pfnUserCallback =  [](
+              VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+              VkDebugUtilsMessageTypeFlagsEXT flags,
+              const VkDebugUtilsMessengerCallbackDataEXT *p_callback_data,
+              void *) -> VKAPI_ATTR VkBool32 VKAPI_CALL {
+            auto flag_to_string = [](VkDebugUtilsMessageTypeFlagsEXT flag) {
+              std::string flags;
+              if (flag & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) {
+                flags += "|GENERAL";
+              }
+              if (flag & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) {
+                flags += "|VALIDATION";
+              }
+              if (flag & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) {
+                flags += "|PERFORMANCE";
+              }
+              flags += "|";
+              return flags;
+            };
+            if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) {
+              spdlog::info("validation layer {}: {}",
+                           flag_to_string(flags),
+                           p_callback_data->pMessage);
+            } else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+              spdlog::warn("validation layer {}: {}",
+                           flag_to_string(flags),
+                           p_callback_data->pMessage);
+            } else if (message_severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+              spdlog::error("validation layer {}: {}",
+                            flag_to_string(flags),
+                            p_callback_data->pMessage);
+            } else {
+              spdlog::debug("validation layer {}: {}",
+                            flag_to_string(flags),
+                            p_callback_data->pMessage);
+            }
+            return VK_FALSE;
+          },};
+      CHECK_VKCMD(CreateDebugUtilsMessengerExt(vulkan_instance_,
+                                               &create_info,
+                                               nullptr,
+                                               &debug_messenger_));
+    }
 
     PFN_xrGetVulkanGraphicsDevice2KHR pfn_get_vulkan_graphics_device_khr = nullptr;
     CHECK_XRCMD(xrGetInstanceProcAddr(xr_instance, "xrGetVulkanGraphicsDevice2KHR",
                                       reinterpret_cast<PFN_xrVoidFunction *>(&pfn_get_vulkan_graphics_device_khr)));
-    CHECK(pfn_get_vulkan_graphics_device_khr != nullptr,
-          "unable to obtain address of xrGetVulkanGraphicsDevice2KHR");
+    if (pfn_get_vulkan_graphics_device_khr == nullptr) {
+      throw std::runtime_error("unable to obtain address of xrGetVulkanGraphicsDevice2KHR");
+    }
     XrVulkanGraphicsDeviceGetInfoKHR vulkan_graphics_device_get_info_khr{};
     vulkan_graphics_device_get_info_khr.type = XR_TYPE_VULKAN_GRAPHICS_DEVICE_GET_INFO_KHR;
     vulkan_graphics_device_get_info_khr.systemId = system_id;
@@ -196,8 +250,9 @@ class VulkanGraphicsPlugin : public GraphicsPlugin {
     PFN_xrCreateVulkanDeviceKHR pfn_xr_create_vulkan_device_khr = nullptr;
     CHECK_XRCMD(xrGetInstanceProcAddr(xr_instance, "xrCreateVulkanDeviceKHR",
                                       reinterpret_cast<PFN_xrVoidFunction *>(&pfn_xr_create_vulkan_device_khr)));
-    CHECK(pfn_xr_create_vulkan_device_khr != nullptr,
-          "failed to get address of xrCreateVulkanDeviceKHR");
+    if (pfn_xr_create_vulkan_device_khr == nullptr) {
+      throw std::runtime_error("failed to get address of xrCreateVulkanDeviceKHR");
+    }
 
     float queue_priorities = 0;
     VkDeviceQueueCreateInfo queue_info{};
@@ -245,10 +300,9 @@ class VulkanGraphicsPlugin : public GraphicsPlugin {
                                                 &vulkan_device_create_info_khr,
                                                 &logical_device_,
                                                 &vulkan_device_create_result));
-    if (VK_FAILED(vulkan_device_create_result)) {
-      LOG_FATAL("unable to create vulkan logical device");
+    if (vulkan_device_create_result != VK_SUCCESS) {
+      throw std::runtime_error("unable to create vulkan logical device");
     }
-
     vkGetDeviceQueue(logical_device_, queue_info.queueFamilyIndex, 0, &graphic_queue_);
 
     VkCommandPoolCreateInfo pool_info = {};
@@ -267,10 +321,10 @@ class VulkanGraphicsPlugin : public GraphicsPlugin {
 
   void InitializeResources() {
     if (vert_shader.empty()) {
-      LOG_FATAL("Failed to compile vertex shader");
+      throw std::runtime_error("Failed to compile vertex shader");
     }
     if (frag_shader.empty()) {
-      LOG_FATAL("Failed to compile fragment shader");
+      throw std::runtime_error("Failed to compile fragment shader");
     }
 
     auto vertex_shader = std::make_shared<vulkan::VulkanShader>(rendering_context_,
@@ -318,7 +372,9 @@ class VulkanGraphicsPlugin : public GraphicsPlugin {
   }
 
   [[nodiscard]] int64_t SelectSwapchainFormat(const std::vector<int64_t> &runtime_formats) override {
-    CHECK(rendering_context_ == nullptr, "select swapchain format must be called only once");
+    if (rendering_context_ != nullptr) {
+      throw std::runtime_error("select swapchain format must be called only once");
+    }
     constexpr VkFormat kPreferredSwapchainFormats[] = { //4 channel formats
         VK_FORMAT_R8G8B8A8_SRGB,
         VK_FORMAT_R8G8B8A8_UNORM,
@@ -329,7 +385,7 @@ class VulkanGraphicsPlugin : public GraphicsPlugin {
                                                   std::begin(kPreferredSwapchainFormats),
                                                   std::end(kPreferredSwapchainFormats));
     if (swapchain_format_it == runtime_formats.end()) {
-      LOG_FATAL("No runtime swapchain format supported for swapchain");
+      throw std::runtime_error("No runtime swapchain format supported for swapchain");
     }
     rendering_context_ = std::make_shared<vulkan::VulkanRenderingContext>(
         physical_device_,
@@ -366,14 +422,16 @@ class VulkanGraphicsPlugin : public GraphicsPlugin {
                   XrSwapchainImageBaseHeader *swapchain_images,
                   const uint32_t image_index,
                   const std::vector<math::Transform> &cube_transforms) override {
-    CHECK(layer_view.subImage.imageArrayIndex == 0, "Texture arrays not supported");
+    if (layer_view.subImage.imageArrayIndex != 0) {
+      throw std::runtime_error("Texture arrays not supported");
+    }
     glm::mat4 proj = math::CreateProjectionFov(layer_view.fov, 0.05f, 100.0f);
     glm::mat4 view = math::InvertRigidBody(
         glm::translate(glm::identity<glm::mat4>(), math::XrVector3FToGlm(layer_view.pose.position))
             * glm::mat4_cast(math::XrQuaternionFToGlm(layer_view.pose.orientation))
     );
     std::vector<glm::mat4> transforms{};
-    for (const math::Transform &cube : cube_transforms) {
+    for (const math::Transform &cube: cube_transforms) {
       glm::mat4 model = glm::scale(glm::translate(glm::identity<glm::mat4>(), cube.position)
                                        * glm::mat4_cast(cube.orientation), cube.scale);
       transforms.emplace_back(proj * view * model);
@@ -392,9 +450,9 @@ class VulkanGraphicsPlugin : public GraphicsPlugin {
     rendering_context_ = nullptr;
     vkDestroyCommandPool(logical_device_, graphics_command_pool_, nullptr);
     vkDestroyDevice(logical_device_, nullptr);
-#if !defined(NDEBUG)
-    DestroyDebugUtilsMessengerExt(vulkan_instance_, debug_messenger_, nullptr);
-#endif
+    if (debug_messenger_ != VK_NULL_HANDLE) {
+      DestroyDebugUtilsMessengerExt(vulkan_instance_, debug_messenger_, nullptr);
+    }
     vkDestroyInstance(vulkan_instance_, nullptr);
   }
 

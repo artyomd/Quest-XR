@@ -1,37 +1,31 @@
-cmake_minimum_required(VERSION 3.18.1)
-
 add_subdirectory(vulkan)
 add_subdirectory(shaders)
-add_subdirectory(utils)
-
-set(SRC
-        graphics_plugin_vulkan.cpp
-        vulkan_swapchain_context.cpp
-        openxr_utils.cpp
-        openxr_program.cpp
-        platform_android.cpp
-        main.cpp
-        )
-
-add_library(quest-xr SHARED ${SRC})
-target_include_directories(quest-xr PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-
-target_compile_definitions(quest-xr PRIVATE XR_USE_PLATFORM_ANDROID)
-target_compile_definitions(quest-xr PRIVATE XR_USE_GRAPHICS_API_VULKAN)
-target_compile_definitions(quest-xr PRIVATE VK_USE_PLATFORM_ANDROID_KHR)
 
 add_library(native_app_glue STATIC ${ANDROID_NDK}/sources/android/native_app_glue/android_native_app_glue.c)
-target_include_directories(quest-xr SYSTEM PRIVATE ${ANDROID_NDK}/sources/android/native_app_glue)
+target_include_directories(native_app_glue PUBLIC ${ANDROID_NDK}/sources/android/native_app_glue)
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -u ANativeActivity_onCreate")
+
+add_library(quest-xr SHARED
+        graphics_plugin_vulkan.cpp
+        main.cpp
+        openxr_program.cpp
+        openxr_utils.cpp
+        platform_android.cpp
+        vulkan_swapchain_context.cpp
+        )
+
+target_compile_definitions(quest-xr PRIVATE XR_USE_PLATFORM_ANDROID
+        XR_USE_GRAPHICS_API_VULKAN
+        VK_USE_PLATFORM_ANDROID_KHR)
 
 target_link_libraries(
         quest-xr
-        vulkan-wrapper
-        utils
-        glm
-        shaders
-        openxr
         android
-        log
+        glm
         native_app_glue
-        vulkan)
+        openxr_loader
+        shaders
+        spdlog
+        vulkan-wrapper
+)
+

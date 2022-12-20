@@ -3,8 +3,9 @@
 #include "platform.hpp"
 #include "graphics_plugin.hpp"
 #include "openxr_utils.hpp"
-#include "logger.hpp"
-#include "utils.hpp"
+
+#include <spdlog/fmt/fmt.h>
+#include <spdlog/spdlog.h>
 
 #include <array>
 #include <cmath>
@@ -48,34 +49,44 @@ XrPosef RotateCCWAboutYAxis(float radians, XrVector3f translation) {
 }
 }  // namespace Math::Pose
 
+namespace {
+bool EqualsIgnoreCase(const std::string &a, const std::string &b) {
+  return std::equal(a.begin(), a.end(),
+                    b.begin(), b.end(),
+                    [](char a, char b) {
+                      return tolower(a) == tolower(b);
+                    });
+}
+};
+
 inline XrReferenceSpaceCreateInfo GetXrReferenceSpaceCreateInfo(const std::string &reference_space_type_str) {
   XrReferenceSpaceCreateInfo reference_space_create_info{};
   reference_space_create_info.type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO;
   reference_space_create_info.poseInReferenceSpace = XrPosef_Identity();
 
-  if (utils::EqualsIgnoreCase(reference_space_type_str, "View")) {
+  if (EqualsIgnoreCase(reference_space_type_str, "View")) {
     reference_space_create_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
-  } else if (utils::EqualsIgnoreCase(reference_space_type_str, "ViewFront")) {
+  } else if (EqualsIgnoreCase(reference_space_type_str, "ViewFront")) {
     // Render head-locked 2m in front of device.
     reference_space_create_info.poseInReferenceSpace = Math::Pose::Translation({0.f, 0.f, -2.f});
     reference_space_create_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
-  } else if (utils::EqualsIgnoreCase(reference_space_type_str, "Local")) {
+  } else if (EqualsIgnoreCase(reference_space_type_str, "Local")) {
     reference_space_create_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
-  } else if (utils::EqualsIgnoreCase(reference_space_type_str, "Stage")) {
+  } else if (EqualsIgnoreCase(reference_space_type_str, "Stage")) {
     reference_space_create_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
-  } else if (utils::EqualsIgnoreCase(reference_space_type_str, "StageLeft")) {
+  } else if (EqualsIgnoreCase(reference_space_type_str, "StageLeft")) {
     reference_space_create_info.poseInReferenceSpace =
         Math::Pose::RotateCCWAboutYAxis(0.f, {-2.f, 0.f, -2.f});
     reference_space_create_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
-  } else if (utils::EqualsIgnoreCase(reference_space_type_str, "StageRight")) {
+  } else if (EqualsIgnoreCase(reference_space_type_str, "StageRight")) {
     reference_space_create_info.poseInReferenceSpace =
         Math::Pose::RotateCCWAboutYAxis(0.f, {2.f, 0.f, -2.f});
     reference_space_create_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
-  } else if (utils::EqualsIgnoreCase(reference_space_type_str, "StageLeftRotated")) {
+  } else if (EqualsIgnoreCase(reference_space_type_str, "StageLeftRotated")) {
     reference_space_create_info.poseInReferenceSpace =
         Math::Pose::RotateCCWAboutYAxis(3.14f / 3.f, {-2.f, 0.5f, -2.f});
     reference_space_create_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
-  } else if (utils::EqualsIgnoreCase(reference_space_type_str, "StageRightRotated")) {
+  } else if (EqualsIgnoreCase(reference_space_type_str, "StageRightRotated")) {
     reference_space_create_info.poseInReferenceSpace =
         Math::Pose::RotateCCWAboutYAxis(-3.14f / 3.f, {2.f, 0.5f, -2.f});
     reference_space_create_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
@@ -91,7 +102,9 @@ OpenXrProgram::OpenXrProgram(std::shared_ptr<Platform> platform)
 
 void OpenXrProgram::CreateInstance() {
   LogLayersAndExtensions();
-  CHECK(instance_ == XR_NULL_HANDLE, "xr instance must not have been inited");
+  if (instance_ != XR_NULL_HANDLE) {
+    throw std::runtime_error("xr instance must not have been inited");
+  }
 
   std::vector<const char *> extensions{};
 
@@ -124,15 +137,21 @@ void OpenXrProgram::CreateInstance() {
 }
 
 void OpenXrProgram::InitializeSystem() {
-  CHECK(instance_ != XR_NULL_HANDLE, "instance is xr null handle");
-  CHECK(system_id_ == XR_NULL_SYSTEM_ID, "system id must be null system id");
+  if (instance_ == XR_NULL_HANDLE) {
+    throw std::runtime_error("instance is xr null handle");
+  }
+  if (system_id_ != XR_NULL_SYSTEM_ID) {
+    throw std::runtime_error("system id must be null system id");
+  }
 
   XrSystemGetInfo system_info{};
   system_info.type = XR_TYPE_SYSTEM_GET_INFO;
   system_info.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
   CHECK_XRCMD(xrGetSystem(instance_, &system_info, &system_id_));
 
-  CHECK(system_id_ != XR_NULL_SYSTEM_ID, "system id must not be null system id");
+  if (system_id_ == XR_NULL_SYSTEM_ID) {
+    throw std::runtime_error("system id must not be null system id");
+  }
 
   LogViewConfigurations(instance_, system_id_);
 
@@ -140,10 +159,14 @@ void OpenXrProgram::InitializeSystem() {
 }
 
 void OpenXrProgram::InitializeSession() {
-  CHECK(instance_ != XR_NULL_HANDLE, "instance_ can not be xr null handle");
-  CHECK(session_ == XR_NULL_HANDLE, "session must xr null handle");
+  if (instance_ == XR_NULL_HANDLE) {
+    throw std::runtime_error("instance_ can not be xr null handle");
+  }
+  if (session_ != XR_NULL_HANDLE) {
+    throw std::runtime_error("session must be xr null handle");
+  }
   {
-    utils::logger::Log(utils::logger::Level::VERBOSE, "Creating session...");
+    spdlog::debug("Creating session...");
 
     XrSessionCreateInfo create_info{};
     create_info.type = XR_TYPE_SESSION_CREATE_INFO;
@@ -320,13 +343,15 @@ void OpenXrProgram::InitializeActions() {
 }
 
 void OpenXrProgram::CreateVisualizedSpaces() {
-  CHECK(session_ != XR_NULL_HANDLE, "session can be xr null handle");
+  if (session_ == XR_NULL_HANDLE) {
+    throw std::runtime_error("session can not be xr null handle");
+  }
 
   std::string visualized_spaces[] =
       {"ViewFront", "Local", "Stage", "StageLeft", "StageRight", "StageLeftRotated",
        "StageRightRotated"};
 
-  for (const auto &visualized_space : visualized_spaces) {
+  for (const auto &visualized_space: visualized_spaces) {
     XrReferenceSpaceCreateInfo
         reference_space_create_info = GetXrReferenceSpaceCreateInfo(visualized_space);
     XrSpace space{};
@@ -334,18 +359,23 @@ void OpenXrProgram::CreateVisualizedSpaces() {
     if (XR_SUCCEEDED(res)) {
       visualized_spaces_.push_back(space);
     } else {
-      utils::logger::Log(utils::logger::Level::WARNING,
-                         fmt::format("Failed to create reference space {} with error {}",
-                                     visualized_space,
-                                     res));
+      spdlog::warn("Failed to create reference space {} with error {}",
+                   visualized_space,
+                   res);
     }
   }
 }
 
 void OpenXrProgram::CreateSwapchains() {
-  CHECK(session_ != XR_NULL_HANDLE, "session is null")
-  CHECK(swapchains_.empty(), "swapchains must be empty")
-  CHECK(config_views_.empty(), "config views must be empty")
+  if (session_ == XR_NULL_HANDLE) {
+    throw std::runtime_error("session is null");
+  }
+  if (!swapchains_.empty()) {
+    throw std::runtime_error("swapchains must be empty");
+  }
+  if (!config_views_.empty()) {
+    throw std::runtime_error("config views must be empty");
+  }
 
   LogSystemProperties(instance_, system_id_);
 
@@ -358,7 +388,9 @@ void OpenXrProgram::CreateSwapchains() {
                                           swapchain_formats.data()));
   uint32_t swapchain_color_format = graphics_plugin_->SelectSwapchainFormat(swapchain_formats);
 
-  CHECK(view_config_type_ == XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, "only stereo is supported")
+  if (view_config_type_ != XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO) {
+    throw std::runtime_error("only stereo is supported");
+  }
 
   uint32_t view_count = 0;
   CHECK_XRCMD(xrEnumerateViewConfigurationViews(instance_,
@@ -376,13 +408,11 @@ void OpenXrProgram::CreateSwapchains() {
                                                 config_views_.data()));
 
   views_.resize(view_count, {XR_TYPE_VIEW});
-  for (const auto &view_config_view:config_views_) {
-    utils::logger::Log(utils::logger::Level::INFO,
-                       fmt::format(
-                           "Creating swapchain with dimensions Width={} Height={} SampleCount={}",
-                           view_config_view.recommendedImageRectWidth,
-                           view_config_view.recommendedImageRectHeight,
-                           view_config_view.recommendedSwapchainSampleCount));
+  for (const auto &view_config_view: config_views_) {
+    spdlog::info("Creating swapchain with dimensions Width={} Height={} SampleCount={}",
+                 view_config_view.recommendedImageRectWidth,
+                 view_config_view.recommendedImageRectHeight,
+                 view_config_view.recommendedSwapchainSampleCount);
 
     XrSwapchainCreateInfo swapchain_create_info{};
     swapchain_create_info.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
@@ -422,9 +452,7 @@ void OpenXrProgram::PollEvents() {
       case XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING: {
         const auto &instance_loss_pending =
             *reinterpret_cast<const XrEventDataInstanceLossPending *>(&event);
-        utils::logger::Log(utils::logger::Level::WARNING,
-                           fmt::format("XrEventDataInstanceLossPending by {}",
-                                       instance_loss_pending.lossTime));
+        spdlog::warn("XrEventDataInstanceLossPending by {}", instance_loss_pending.lossTime);
         return;
       }
       case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED: {
@@ -442,8 +470,7 @@ void OpenXrProgram::PollEvents() {
         break;
       case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING:
       default: {
-        utils::logger::Log(utils::logger::Level::VERBOSE,
-                           fmt::format("Ignoring event type {}", event->type));
+        spdlog::debug("Ignoring event type {}", event->type);
         break;
       }
     }
@@ -457,35 +484,31 @@ const XrEventDataBaseHeader *OpenXrProgram::TryReadNextEvent() {
   if (result == XR_SUCCESS) {
     if (base_header->type == XR_TYPE_EVENT_DATA_EVENTS_LOST) {
       auto events_lost = reinterpret_cast<XrEventDataEventsLost *>(base_header);
-      utils::logger::Log(utils::logger::Level::WARNING,
-                         fmt::format("{} events lost", events_lost->lostEventCount));
+      spdlog::warn("{} events lost", events_lost->lostEventCount);
     }
     return base_header;
   }
   if (result == XR_EVENT_UNAVAILABLE) {
     return nullptr;
   }
-  LOG_FATAL("xr pull event unknown result: {}", result);
+  spdlog::error("xr pull event unknown result: {}", result);
 }
 
 void OpenXrProgram::HandleSessionStateChangedEvent(const XrEventDataSessionStateChanged &state_changed_event) {
 
-  utils::logger::Log(utils::logger::Level::INFO,
-                     fmt::format(
-                         "XrEventDataSessionStateChanged: state {}->{} time={}",
-                         session_state_,
-                         state_changed_event.state,
-                         state_changed_event.time));
+  spdlog::info("XrEventDataSessionStateChanged: state {}->{} time={}",
+               session_state_,
+               state_changed_event.state,
+               state_changed_event.time);
 
   if ((state_changed_event.session != XR_NULL_HANDLE)
       && (state_changed_event.session != session_)) {
-    LOG_FATAL("XrEventDataSessionStateChanged for unknown session");
+    spdlog::error("XrEventDataSessionStateChanged for unknown session");
     return;
   }
   session_state_ = state_changed_event.state;
   switch (session_state_) {
     case XR_SESSION_STATE_READY: {
-      CHECK(session_ != XR_NULL_HANDLE, "session can not be null");
       XrSessionBeginInfo session_begin_info{};
       session_begin_info.type = XR_TYPE_SESSION_BEGIN_INFO;
       session_begin_info.primaryViewConfigurationType = view_config_type_;
@@ -494,7 +517,6 @@ void OpenXrProgram::HandleSessionStateChangedEvent(const XrEventDataSessionState
       break;
     }
     case XR_SESSION_STATE_STOPPING: {
-      CHECK(session_ != XR_NULL_HANDLE, "session can not be null");
       session_running_ = false;
       CHECK_XRCMD(xrEndSession(session_));
       break;
@@ -566,7 +588,9 @@ void OpenXrProgram::PollActions() {
 }
 
 void OpenXrProgram::RenderFrame() {
-  CHECK(session_ != XR_NULL_HANDLE, "session can not be null");
+  if (session_ == XR_NULL_HANDLE) {
+    throw std::runtime_error("session can not be null");
+  }
 
   XrFrameWaitInfo frame_wait_info{
       .type = XR_TYPE_FRAME_WAIT_INFO,
@@ -625,16 +649,12 @@ bool OpenXrProgram::RenderLayer(XrTime predicted_display_time,
     return false;  // There is no valid tracking poses for the views.
   }
 
-  CHECK(view_count_output == views_.size(), "idk");
-  CHECK(view_count_output == config_views_.size(), "idk");
-  CHECK(view_count_output == swapchains_.size(), "idk");
-
   projection_layer_views.resize(view_count_output);
 
   // For each locatable space that we want to visualize, render a 25cm cube.
   std::vector<math::Transform> cubes{};
 
-  for (XrSpace visualized_space : visualized_spaces_) {
+  for (XrSpace visualized_space: visualized_spaces_) {
     XrSpaceLocation space_location{};
     space_location.type = XR_TYPE_SPACE_LOCATION;
     auto res = xrLocateSpace(visualized_space, app_space_, predicted_display_time, &space_location);
@@ -647,15 +667,12 @@ bool OpenXrProgram::RenderLayer(XrTime predicted_display_time,
             {0.25f, 0.25f, 0.25f}});
       }
     } else {
-      utils::logger::Log(utils::logger::Level::VERBOSE,
-                         fmt::format(
-                             "Unable to locate a visualized reference space in app space: {}",
-                             res));
+      spdlog::debug("Unable to locate a visualized reference space in app space: {}", res);
     }
   }
 
   // Render a 10cm cube scaled by grab_action for each hand. Note renderHand will only be true when the application has focus.
-  for (auto hand : {side::LEFT, side::RIGHT}) {
+  for (auto hand: {side::LEFT, side::RIGHT}) {
     XrSpaceLocation space_location{};
     space_location.type = XR_TYPE_SPACE_LOCATION;
     auto res =
@@ -673,10 +690,9 @@ bool OpenXrProgram::RenderLayer(XrTime predicted_display_time,
       // Tracking loss is expected when the hand is not active so only log a message if the hand is active.
       if (input_.hand_active[hand] == XR_TRUE) {
         const char *hand_name[] = {"left", "right"};
-        utils::logger::Log(utils::logger::Level::VERBOSE,
-                           fmt::format("Unable to locate {} hand action space in app space: {}",
-                                       hand_name[hand],
-                                       res));
+        spdlog::debug("Unable to locate {} hand action space in app space: {}",
+                      hand_name[hand],
+                      res);
       }
     }
   }
@@ -725,16 +741,16 @@ bool OpenXrProgram::RenderLayer(XrTime predicted_display_time,
 
 OpenXrProgram::~OpenXrProgram() {
   if (input_.action_set != XR_NULL_HANDLE) {
-    for (auto hand : {side::LEFT, side::RIGHT}) {
+    for (auto hand: {side::LEFT, side::RIGHT}) {
       xrDestroySpace(input_.hand_space[hand]);
     }
     xrDestroyActionSet(input_.action_set);
   }
-  for (Swapchain swapchain : swapchains_) {
+  for (Swapchain swapchain: swapchains_) {
     xrDestroySwapchain(swapchain.handle);
   }
   graphics_plugin_->DeinitDevice();
-  for (XrSpace visualized_space : visualized_spaces_) {
+  for (XrSpace visualized_space: visualized_spaces_) {
     xrDestroySpace(visualized_space);
   }
   if (app_space_ != XR_NULL_HANDLE) {

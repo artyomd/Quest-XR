@@ -2,6 +2,40 @@
 
 #include <stdexcept>
 
+#include <spdlog/fmt/fmt.h>
+#include <spdlog/spdlog.h>
+
+void vulkan::CheckResult(VkResult result, const std::string &file, uint32_t line) {
+  if (result != VK_SUCCESS) [[unlikely]] {
+    throw std::runtime_error(fmt::format("call failed with error {:#x} {}:{}\n",
+                                         result,
+                                         file,
+                                         line));
+  }
+}
+
+std::vector<VkLayerProperties> vulkan::GetAvailableInstanceLayers() {
+  uint32_t count = 0;
+  CHECK_VKCMD(vkEnumerateInstanceLayerProperties(&count, nullptr));
+  std::vector<VkLayerProperties> available_layers(count);
+  CHECK_VKCMD(vkEnumerateInstanceLayerProperties(&count, available_layers.data()));
+  return available_layers;
+}
+
+std::vector<VkExtensionProperties> vulkan::GetAvailableInstanceExtensions(std::string layer_name) {
+  const char *p_layer_name = nullptr;
+  if (!layer_name.empty()) {
+    p_layer_name = layer_name.data();
+  }
+  uint32_t count = 0;
+  CHECK_VKCMD(vkEnumerateInstanceExtensionProperties(p_layer_name, &count, nullptr));
+  std::vector<VkExtensionProperties> available_extensions(count);
+  CHECK_VKCMD(vkEnumerateInstanceExtensionProperties(p_layer_name,
+                                                     &count,
+                                                     available_extensions.data()));
+  return available_extensions;
+}
+
 VkFormat vulkan::GetVkFormat(DataType type, uint32_t count) {
   switch (type) {
     case DataType::BYTE:

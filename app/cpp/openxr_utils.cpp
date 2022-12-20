@@ -1,10 +1,18 @@
 #include "openxr_utils.hpp"
 
-#include "logger.hpp"
-
-#include <fmt/format.h>
+#include <spdlog/fmt/fmt.h>
+#include <spdlog/spdlog.h>
 
 #include <vector>
+
+void CheckResult(XrResult result, const std::string &file, uint32_t line) {
+  if (XR_FAILED(result)) [[unlikely]] {
+    throw std::runtime_error(fmt::format("call failed with error {:#x} {}:{}\n",
+                                         result,
+                                         file,
+                                         line));
+  }
+}
 
 std::string GetXrVersionString(XrVersion ver) {
   return fmt::format("{}.{}.{}",
@@ -22,7 +30,7 @@ void LogLayersAndExtensions() {
                                                        nullptr));
 
     std::vector<XrExtensionProperties> extensions(instance_extension_count);
-    for (XrExtensionProperties &extension : extensions) {
+    for (XrExtensionProperties &extension: extensions) {
       extension.type = XR_TYPE_EXTENSION_PROPERTIES;
     }
 
@@ -32,16 +40,14 @@ void LogLayersAndExtensions() {
                                                        extensions.data()));
 
     const std::string kIndentStr(indent, ' ');
-    utils::logger::Log(utils::logger::Level::VERBOSE,
-                       fmt::format("{}Available Extensions: ({})",
-                                   kIndentStr.c_str(),
-                                   instance_extension_count));
-    for (const XrExtensionProperties &extension : extensions) {
-      utils::logger::Log(utils::logger::Level::VERBOSE,
-                         fmt::format("{}  Name={} SpecVersion={}",
-                                     kIndentStr.c_str(),
-                                     extension.extensionName,
-                                     extension.extensionVersion));
+    spdlog::debug("{} Available Extensions: ({})",
+                  kIndentStr.c_str(),
+                  instance_extension_count);
+    for (const XrExtensionProperties &extension: extensions) {
+      spdlog::debug("{}  Name={} SpecVersion={}",
+                    kIndentStr.c_str(),
+                    extension.extensionName,
+                    extension.extensionVersion);
     }
   };
 
@@ -52,7 +58,7 @@ void LogLayersAndExtensions() {
     CHECK_XRCMD(xrEnumerateApiLayerProperties(0, &layer_count, nullptr));
 
     std::vector<XrApiLayerProperties> layers(layer_count);
-    for (XrApiLayerProperties &layer : layers) {
+    for (XrApiLayerProperties &layer: layers) {
       layer.type = XR_TYPE_API_LAYER_PROPERTIES;
     }
 
@@ -60,36 +66,39 @@ void LogLayersAndExtensions() {
                                               &layer_count,
                                               layers.data()));
 
-    utils::logger::Log(utils::logger::Level::INFO,
-                       fmt::format("Available Layers: ({})", layer_count));
-    for (const XrApiLayerProperties &layer : layers) {
-      utils::logger::Log(utils::logger::Level::VERBOSE,
-                         fmt::format("  Name={} SpecVersion={} LayerVersion={} Description={}",
-                                     layer.layerName,
-                                     GetXrVersionString(layer.specVersion).c_str(),
-                                     layer.layerVersion,
-                                     layer.description));
+    spdlog::info("Available Layers: ({})", layer_count);
+    for (const XrApiLayerProperties &layer: layers) {
+      spdlog::debug("  Name={} SpecVersion={} LayerVersion={} Description={}",
+                    layer.layerName,
+                    GetXrVersionString(layer.specVersion).c_str(),
+                    layer.layerVersion,
+                    layer.description);
       log_extensions(layer.layerName, 4);
     }
   }
 }
 
 void LogInstanceInfo(XrInstance instance) {
-  CHECK(instance != XR_NULL_HANDLE, "instance is xr null handle");
+  if (instance == XR_NULL_HANDLE) {
+    throw std::runtime_error("instance is xr null handle");
+  }
 
   XrInstanceProperties instance_properties{};
   instance_properties.type = XR_TYPE_INSTANCE_PROPERTIES;
   CHECK_XRCMD(xrGetInstanceProperties(instance, &instance_properties));
 
-  utils::logger::Log(utils::logger::Level::INFO,
-                     fmt::format("Instance RuntimeName={} RuntimeVersion={}",
-                                 instance_properties.runtimeName,
-                                 GetXrVersionString(instance_properties.runtimeVersion).c_str()));
+  spdlog::info("Instance RuntimeName={} RuntimeVersion={}",
+               instance_properties.runtimeName,
+               GetXrVersionString(instance_properties.runtimeVersion).c_str());
 }
 
 void LogViewConfigurations(XrInstance instance, XrSystemId system_id) {
-  CHECK(instance != XR_NULL_HANDLE, "instance is xr null handle");
-  CHECK(system_id != XR_NULL_SYSTEM_ID, "system id is xr null system id");
+  if (instance == XR_NULL_HANDLE) {
+    throw std::runtime_error("instance is xr null handle");
+  }
+  if (system_id == XR_NULL_SYSTEM_ID) {
+    throw std::runtime_error("system id is xr null system id");
+  }
 
   uint32_t view_config_type_count;
   CHECK_XRCMD(xrEnumerateViewConfigurations(instance,
@@ -104,10 +113,8 @@ void LogViewConfigurations(XrInstance instance, XrSystemId system_id) {
                                             &view_config_type_count,
                                             view_config_types.data()));
 
-  utils::logger::Log(utils::logger::Level::INFO,
-                     fmt::format("Available View Configuration Types: ({})",
-                                 view_config_type_count));
-  for (XrViewConfigurationType view_config_type : view_config_types) {
+  spdlog::info("Available View Configuration Types: ({})", view_config_type_count);
+  for (XrViewConfigurationType view_config_type: view_config_types) {
     std::string view_config_type_name = "unknown";
     switch (view_config_type) {
       case XR_VIEW_CONFIGURATION_TYPE_PRIMARY_MONO:view_config_type_name = "PRIMARY_MONO";
@@ -121,8 +128,7 @@ void LogViewConfigurations(XrInstance instance, XrSystemId system_id) {
         break;
       default:view_config_type_name = "unknown";
     }
-    utils::logger::Log(utils::logger::Level::VERBOSE,
-                       fmt::format(" View Configuration Type: {}", view_config_type_name));
+    spdlog::debug(" View Configuration Type: {}", view_config_type_name);
 
     XrViewConfigurationProperties view_config_properties{};
     view_config_properties.type = XR_TYPE_VIEW_CONFIGURATION_PROPERTIES;
@@ -131,10 +137,9 @@ void LogViewConfigurations(XrInstance instance, XrSystemId system_id) {
                                                  view_config_type,
                                                  &view_config_properties));
 
-    utils::logger::Log(utils::logger::Level::VERBOSE,
-                       fmt::format("  View configuration FovMutable={}",
-                                   view_config_properties.fovMutable == XR_TRUE ? "True"
-                                                                                : "False"));
+    spdlog::debug("  View configuration FovMutable={}",
+                  view_config_properties.fovMutable == XR_TRUE ? "True"
+                                                               : "False");
 
     uint32_t view_count;
     CHECK_XRCMD(xrEnumerateViewConfigurationViews(instance,
@@ -156,23 +161,19 @@ void LogViewConfigurations(XrInstance instance, XrSystemId system_id) {
       for (uint32_t i = 0; i < views.size(); i++) {
         const XrViewConfigurationView &view = views[i];
 
-        utils::logger::Log(utils::logger::Level::VERBOSE,
-                           fmt::format(
-                               "    View [{}]: Recommended Width={} Height={} SampleCount={}",
-                               i,
-                               view.recommendedImageRectWidth,
-                               view.recommendedImageRectHeight,
-                               view.recommendedSwapchainSampleCount));
-        utils::logger::Log(utils::logger::Level::VERBOSE,
-                           fmt::format(
-                               "    View [{}]:     Maximum Width={} Height={} SampleCount={}",
-                               i,
-                               view.maxImageRectWidth,
-                               view.maxImageRectHeight,
-                               view.maxSwapchainSampleCount));
+        spdlog::debug("    View [{}]: Recommended Width={} Height={} SampleCount={}",
+                      i,
+                      view.recommendedImageRectWidth,
+                      view.recommendedImageRectHeight,
+                      view.recommendedSwapchainSampleCount);
+        spdlog::debug("    View [{}]:     Maximum Width={} Height={} SampleCount={}",
+                      i,
+                      view.maxImageRectWidth,
+                      view.maxImageRectHeight,
+                      view.maxSwapchainSampleCount);
       }
     } else {
-      utils::logger::Log(utils::logger::Level::FATAL, "Empty view configuration type");
+      spdlog::error("Empty view configuration type");
     }
 
     uint32_t count;
@@ -182,10 +183,11 @@ void LogViewConfigurations(XrInstance instance, XrSystemId system_id) {
                                                  0,
                                                  &count,
                                                  nullptr));
-    CHECK(count > 0, "must have at least 1 env blend mode")
+    if (count < 0) {
+      throw std::runtime_error("must have at least 1 env blend mode");
+    }
 
-    utils::logger::Log(utils::logger::Level::INFO,
-                       fmt::format("Available Environment Blend Mode count : {}", count));
+    spdlog::info("Available Environment Blend Mode count : {}", count);
 
     std::vector<XrEnvironmentBlendMode> blend_modes(count);
     CHECK_XRCMD(xrEnumerateEnvironmentBlendModes(instance,
@@ -195,7 +197,7 @@ void LogViewConfigurations(XrInstance instance, XrSystemId system_id) {
                                                  &count,
                                                  blend_modes.data()));
 
-    for (XrEnvironmentBlendMode mode : blend_modes) {
+    for (XrEnvironmentBlendMode mode: blend_modes) {
       std::string blend_mode_name = "unknown";
       switch (mode) {
         case XR_ENVIRONMENT_BLEND_MODE_OPAQUE:blend_mode_name = "opaque";
@@ -206,23 +208,19 @@ void LogViewConfigurations(XrInstance instance, XrSystemId system_id) {
           break;
         default:blend_mode_name = "unknown";
       }
-      utils::logger::Log(utils::logger::Level::INFO,
-                         fmt::format("Environment Blend Mode: {}", blend_mode_name));
+      spdlog::info("Environment Blend Mode: {}", blend_mode_name);
     }
   }
 }
 
 void LogReferenceSpaces(XrSession session) {
-  CHECK(session != XR_NULL_HANDLE, "session can be xr null handle");
-
   uint32_t space_count;
   CHECK_XRCMD(xrEnumerateReferenceSpaces(session, 0, &space_count, nullptr));
   std::vector<XrReferenceSpaceType> spaces(space_count);
   CHECK_XRCMD(xrEnumerateReferenceSpaces(session, space_count, &space_count, spaces.data()));
 
-  utils::logger::Log(utils::logger::Level::INFO,
-                     fmt::format("Available reference spaces: {}", space_count));
-  for (XrReferenceSpaceType space : spaces) {
+  spdlog::info("Available reference spaces: {}", space_count);
+  for (XrReferenceSpaceType space: spaces) {
     auto reference_space_name = "";
     switch (space) {
       case XR_REFERENCE_SPACE_TYPE_VIEW: reference_space_name = "view";
@@ -237,8 +235,7 @@ void LogReferenceSpaces(XrSession session) {
         break;
       default:reference_space_name = "unknown";
     }
-    utils::logger::Log(utils::logger::Level::VERBOSE,
-                       fmt::format(" space: {}", reference_space_name));
+    spdlog::debug(" space: {}", reference_space_name);
   }
 }
 
@@ -248,26 +245,20 @@ void LogSystemProperties(XrInstance instance, XrSystemId system_id) {
   system_properties.type = XR_TYPE_SYSTEM_PROPERTIES;
   CHECK_XRCMD(xrGetSystemProperties(instance, system_id, &system_properties));
 
-  utils::logger::Log(utils::logger::Level::INFO,
-                     fmt::format("System Properties: Name={} VendorId={}",
-                                 system_properties.systemName,
-                                 system_properties.vendorId)
-  );
-  utils::logger::Log(utils::logger::Level::INFO,
-                     fmt::format("System Graphics Properties: MaxWidth={} MaxHeight={} MaxLayers={}",
-                                 system_properties.graphicsProperties.maxSwapchainImageWidth,
-                                 system_properties.graphicsProperties.maxSwapchainImageHeight,
-                                 system_properties.graphicsProperties.maxLayerCount)
-  );
-  utils::logger::Log(utils::logger::Level::INFO,
-                     fmt::format(
-                         "System Tracking Properties: OrientationTracking={} PositionTracking={}",
-                         system_properties.trackingProperties.orientationTracking == XR_TRUE
-                         ? "True"
-                         : "False",
-                         system_properties.trackingProperties.positionTracking == XR_TRUE ? "True"
-                                                                                          : "False")
-  );
+  spdlog::info("System Properties: Name={} VendorId={}",
+               system_properties.systemName,
+               system_properties.vendorId);
+  spdlog::info("System Graphics Properties: MaxWidth={} MaxHeight={} MaxLayers={}",
+               system_properties.graphicsProperties.maxSwapchainImageWidth,
+               system_properties.graphicsProperties.maxSwapchainImageHeight,
+               system_properties.graphicsProperties.maxLayerCount);
+  spdlog::info(
+      "System Tracking Properties: OrientationTracking={} PositionTracking={}",
+      system_properties.trackingProperties.orientationTracking == XR_TRUE
+      ? "True"
+      : "False",
+      system_properties.trackingProperties.positionTracking == XR_TRUE ? "True"
+                                                                       : "False");
 }
 
 void LogActionSourceName(XrSession session, XrAction action, const std::string &action_name) {
@@ -313,8 +304,7 @@ void LogActionSourceName(XrSession session, XrAction action, const std::string &
     source_name += "'";
   }
 
-  utils::logger::Log(utils::logger::Level::INFO,
-                     fmt::format("{} action is bound to {}",
-                                 action_name.c_str(),
-                                 ((!source_name.empty()) ? source_name.c_str() : "nothing")));
+  spdlog::info("{} action is bound to {}",
+               action_name.c_str(),
+               !source_name.empty() ? source_name.c_str() : "nothing");
 }

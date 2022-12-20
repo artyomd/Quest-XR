@@ -91,7 +91,7 @@ void VulkanSwapchainContext::Draw(uint32_t image_index,
   pipeline->BindPipeline(graphics_command_buffers_[current_fame_]);
   vkCmdSetViewport(graphics_command_buffers_[current_fame_], 0, 1, &viewport_);
   vkCmdSetScissor(graphics_command_buffers_[current_fame_], 0, 1, &scissor_);
-  for (const auto &transform:transforms) {
+  for (const auto &transform: transforms) {
     vkCmdPushConstants(graphics_command_buffers_[current_fame_],
                        pipeline->GetPipelineLayout(),
                        VK_SHADER_STAGE_VERTEX_BIT,
@@ -228,7 +228,7 @@ void VulkanSwapchainContext::CreateCommandBuffers() {
   alloc_info.commandBufferCount = static_cast<uint32_t>(graphics_command_buffers_.size());
   CHECK_VKCMD(vkAllocateCommandBuffers(rendering_context_->GetDevice(),
                                        &alloc_info,
-                                       graphics_command_buffers_.data()))
+                                       graphics_command_buffers_.data()));
 }
 
 void VulkanSwapchainContext::CreateSyncObjects() {

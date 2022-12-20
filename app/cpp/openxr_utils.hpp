@@ -2,11 +2,12 @@
 
 #include "openxr-include.hpp"
 
-#include "logger.hpp"
+#include <string>
 
 #define CHECK_XRCMD(cmd) \
-  CHECK(!XR_FAILED(cmd), "XrResult [{}] while calling {} in {}:{}", cmd, #cmd, __FILE__, __LINE__)
+  CheckResult(cmd, __FILE__, __LINE__)
 
+void CheckResult(XrResult result, const std::string &file, uint32_t line);
 std::string GetXrVersionString(XrVersion ver);
 void LogLayersAndExtensions();
 void LogInstanceInfo(XrInstance instance);

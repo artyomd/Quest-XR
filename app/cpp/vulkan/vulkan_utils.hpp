@@ -8,18 +8,19 @@
 
 #include "data_type.hpp"
 #include "redering_pipeline_config.hpp"
-#include "logger.hpp"
 
-#define VK_SUCCEEDED(result) ((result) >= 0)
+#include <string>
 
-#define VK_FAILED(result) ((result) < 0)
-
-#define VK_UNQUALIFIED_SUCCESS(result) ((result) == 0)
-
-#define CHECK_VKCMD(cmd) \
-  CHECK(!VK_FAILED(cmd), "VkResult [{}] while calling {} in {}:{}", cmd, #cmd, __FILE__, __LINE__)
+#define CHECK_VKCMD(x) \
+  vulkan::CheckResult(x, __FILE__, __LINE__)
 
 namespace vulkan {
+
+void CheckResult(VkResult result, const std::string &file, uint32_t line);
+
+std::vector<VkExtensionProperties> GetAvailableInstanceExtensions(std::string layer_name);
+
+std::vector<VkLayerProperties> GetAvailableInstanceLayers();
 
 VkBufferUsageFlags GetVkBufferUsage(BufferUsage buffer_usage);
 

@@ -7,7 +7,7 @@ repositories {
 }
 android {
     compileSdk = 29
-    ndkVersion = "23.1.7779620"
+    ndkVersion = "25.1.8937393"
     defaultConfig {
         minSdk = 29
         targetSdk = 29
@@ -16,7 +16,8 @@ android {
         applicationId = "app.artyomd.questxr"
         externalNativeBuild {
             cmake {
-                arguments.add("-DANDROID_STL=c++_static")
+                arguments.add("-DANDROID_STL=c++_shared")
+                arguments.add("-DANDROID_USE_LEGACY_TOOLCHAIN_FILE=OFF")
             }
             ndk {
                 abiFilters.add("arm64-v8a")
@@ -35,7 +36,7 @@ android {
     }
     externalNativeBuild {
         cmake {
-            version = "3.18.1"
+            version = "3.22.1"
             path("CMakeLists.txt")
         }
     }
@@ -56,5 +57,15 @@ android {
         jniLibs {
             keepDebugSymbols.add("**.so")
         }
+    }
+    buildFeatures {
+        aidl = false
+        buildConfig = false
+        compose = false
+        prefab = false
+        renderScript = false
+        resValues = false
+        shaders = false
+        viewBinding = false
     }
 }

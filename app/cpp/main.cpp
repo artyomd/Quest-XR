@@ -5,9 +5,9 @@
 #include "platform_data.hpp"
 #include "platform.hpp"
 
-#include "logger.hpp"
-
 #include "openxr_program.hpp"
+
+#include <spdlog/spdlog.h>
 
 struct AndroidAppState {
   bool resumed = false;
@@ -17,33 +17,33 @@ static void AppHandleCmd(struct android_app *app, int32_t cmd) {
   auto *app_state = reinterpret_cast<AndroidAppState *>(app->userData);
   switch (cmd) {
     case APP_CMD_START: {
-      utils::logger::Log(utils::logger::Level::INFO, "APP_CMD_START onStart()");
+      spdlog::info("APP_CMD_START onStart()");
       break;
     }
     case APP_CMD_RESUME: {
-      utils::logger::Log(utils::logger::Level::INFO, "APP_CMD_RESUME onResume()");
+      spdlog::info("APP_CMD_RESUME onResume()");
       app_state->resumed = true;
       break;
     }
     case APP_CMD_PAUSE: {
-      utils::logger::Log(utils::logger::Level::INFO, "APP_CMD_PAUSE onPause()");
+      spdlog::info("APP_CMD_PAUSE onPause()");
       app_state->resumed = false;
       break;
     }
     case APP_CMD_STOP: {
-      utils::logger::Log(utils::logger::Level::INFO, "APP_CMD_STOP onStop()");
+      spdlog::info("APP_CMD_STOP onStop()");
       break;
     }
     case APP_CMD_DESTROY: {
-      utils::logger::Log(utils::logger::Level::INFO, "APP_CMD_DESTROY onDestroy()");
+      spdlog::info("APP_CMD_DESTROY onDestroy()");
       break;
     }
     case APP_CMD_INIT_WINDOW: {
-      utils::logger::Log(utils::logger::Level::INFO, "APP_CMD_INIT_WINDOW surfaceCreated()");
+      spdlog::info("APP_CMD_INIT_WINDOW surfaceCreated()");
       break;
     }
     case APP_CMD_TERM_WINDOW: {
-      utils::logger::Log(utils::logger::Level::INFO, "APP_CMD_TERM_WINDOW surfaceDestroyed()");
+      spdlog::info("APP_CMD_TERM_WINDOW surfaceDestroyed()");
       break;
     }
   }
@@ -96,8 +96,8 @@ void android_main(struct android_app *app) {
 
     app->activity->vm->DetachCurrentThread();
   } catch (const std::exception &ex) {
-    utils::logger::Log(utils::logger::Level::FATAL, ex.what());
+    spdlog::error(ex.what());
   } catch (...) {
-    utils::logger::Log(utils::logger::Level::FATAL, "Unknown Error");
+    spdlog::error("Unknown Error");
   }
 }
