@@ -3,33 +3,36 @@
 #include <spdlog/fmt/fmt.h>
 
 vulkan::VulkanShader::VulkanShader(const std::shared_ptr<VulkanRenderingContext> &context,
-                                   std::string sipr_v_shader_source,
-                                   std::string entry_point_name,
-                                   ShaderType type)
-    : code_(std::move(sipr_v_shader_source)),
+                                   const std::vector<uint32_t> &code,
+                                   std::string entry_point_name)
+    : code_(std::move(code)),
       entry_point_name_(std::move(entry_point_name)),
-      type_(type),
       device_(context->GetDevice()) {
-  VkShaderModuleCreateInfo create_info = {};
-  create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  create_info.codeSize = code_.size();
-  create_info.pCode = reinterpret_cast<const uint32_t *>(code_.data());
-
+  VkShaderModuleCreateInfo create_info = {
+      .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+      .codeSize = code_.size() * sizeof(uint32_t),
+      .pCode = code_.data(),
+  };
   if (vkCreateShaderModule(device_, &create_info, nullptr, &shader_module_) != VK_SUCCESS) {
     throw std::runtime_error("failed to create shader module!");
   }
 
-  shader_stage_info_.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  shader_stage_info_.stage = GetVkShaderStageFlag(type);
-  shader_stage_info_.module = shader_module_;
-  shader_stage_info_.pName = this->entry_point_name_.data();
-  shader_stage_info_.pSpecializationInfo = nullptr;
-
   SpvReflectResult
-      result = spvReflectCreateShaderModule(code_.size(), code_.data(), &reflect_shader_module_);
-
-  if (result != SPV_REFLECT_RESULT_SUCCESS)[[unlikely]] {
-    throw std::runtime_error(fmt::format("spirv reflect failed with error {:#x}\n", result));
+      result =
+      spvReflectCreateShaderModule(code_.size() * sizeof(uint32_t),
+                                   code_.data(),
+                                   &reflect_shader_module_);
+  if (result != SPV_REFLECT_RESULT_SUCCESS) {
+    throw std::runtime_error("spir-v reflection failed");
+  }
+  switch (reflect_shader_module_.shader_stage) {
+    case SPV_REFLECT_SHADER_STAGE_VERTEX_BIT:
+      this->type_ = VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT;
+      break;
+    case SPV_REFLECT_SHADER_STAGE_FRAGMENT_BIT:
+      this->type_ = VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT;
+      break;
+    default:throw std::runtime_error("unhandled shader stage");
   }
 
   uint32_t count = 0;
@@ -54,16 +57,23 @@ vulkan::VulkanShader::VulkanShader(const std::shared_ptr<VulkanRenderingContext>
 
   for (const auto &block: blocks) {
     VkPushConstantRange range{
-        .stageFlags = GetVkShaderStageFlag(type),
+        .stageFlags = type_,
         .offset = block->offset,
         .size = block->size,
     };
     push_constants_.emplace_back(range);
   }
+
 }
 
 VkPipelineShaderStageCreateInfo vulkan::VulkanShader::GetShaderStageInfo() const {
-  return shader_stage_info_;
+  return {
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+      .stage = type_,
+      .module = shader_module_,
+      .pName = this->entry_point_name_.data(),
+      .pSpecializationInfo = nullptr,
+  };
 }
 
 vulkan::VulkanShader::~VulkanShader() {

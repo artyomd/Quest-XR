@@ -15,22 +15,18 @@
 namespace vulkan {
 class VulkanShader {
  private:
-  const std::string code_;
-  const std::string entry_point_name_;
-  ShaderType type_;
+  std::vector<uint32_t> code_{};
+  std::string entry_point_name_;
+  VkShaderStageFlagBits type_;
 
   VkDevice device_;
   VkShaderModule shader_module_ = nullptr;
   SpvReflectShaderModule reflect_shader_module_{};
-  VkPipelineShaderStageCreateInfo shader_stage_info_{};
-
   std::vector<VkPushConstantRange> push_constants_{};
  public:
   VulkanShader(const std::shared_ptr<VulkanRenderingContext> &context,
-               std::string sipr_v_shader_location,
-               std::string entry_point_name,
-               ShaderType type
-  );
+               const std::vector<uint32_t> &code,
+               std::string entry_point_name);
 
   [[nodiscard]] VkPipelineShaderStageCreateInfo GetShaderStageInfo() const;
 

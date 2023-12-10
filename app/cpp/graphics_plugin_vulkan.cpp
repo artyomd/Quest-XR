@@ -2,8 +2,6 @@
 
 #include "openxr_utils.hpp"
 
-#include <shaders.hpp>
-
 #include "vulkan_swapchain_context.hpp"
 #include "vulkan/data_type.hpp"
 #include "vulkan/vulkan_rendering_context.hpp"
@@ -320,21 +318,20 @@ class VulkanGraphicsPlugin : public GraphicsPlugin {
   }
 
   void InitializeResources() {
-    if (vert_shader.empty()) {
-      throw std::runtime_error("Failed to compile vertex shader");
-    }
-    if (frag_shader.empty()) {
-      throw std::runtime_error("Failed to compile fragment shader");
-    }
+
+    const std::vector<uint32_t> kVertexShader = {
+#include "vert.spv"
+    };
+    const std::vector<uint32_t> kFragmentShader = {
+#include "frag.spv"
+    };
 
     auto vertex_shader = std::make_shared<vulkan::VulkanShader>(rendering_context_,
-                                                                vert_shader,
-                                                                "main",
-                                                                vulkan::ShaderType::VERTEX);
+                                                                kVertexShader,
+                                                                "main");
     auto fragment_shader = std::make_shared<vulkan::VulkanShader>(rendering_context_,
-                                                                  frag_shader,
-                                                                  "main",
-                                                                  vulkan::ShaderType::FRAGMENT);
+                                                                  kFragmentShader,
+                                                                  "main");
 
     vulkan::VertexBufferLayout vertex_buffer_layout = vulkan::VertexBufferLayout();
     vertex_buffer_layout.Push({0, vulkan::DataType::FLOAT, 3});

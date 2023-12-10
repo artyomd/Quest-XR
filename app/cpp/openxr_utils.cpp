@@ -150,6 +150,10 @@ void LogViewConfigurations(XrInstance instance, XrSystemId system_id) {
                                                   nullptr));
     if (view_count > 0) {
       std::vector<XrViewConfigurationView> views(view_count);
+      for (uint32_t i = 0; i < view_count; i++) {
+        views[i].type = XR_TYPE_VIEW_CONFIGURATION_VIEW;
+        views[i].next = nullptr;
+      }
       CHECK_XRCMD(
           xrEnumerateViewConfigurationViews(instance,
                                             system_id,

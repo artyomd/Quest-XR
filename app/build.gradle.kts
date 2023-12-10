@@ -1,16 +1,13 @@
 plugins {
     id("com.android.application")
 }
-repositories {
-    google()
-    mavenCentral()
-}
 android {
-    compileSdk = 29
-    ndkVersion = "25.1.8937393"
+    compileSdk = 32
+    ndkVersion = "26.1.10909125"
+    namespace = "app.artyomd.questxr"
     defaultConfig {
-        minSdk = 29
-        targetSdk = 29
+        minSdk = 32
+        targetSdk = 32
         versionCode = 1
         versionName = "1.0"
         applicationId = "app.artyomd.questxr"
@@ -53,19 +50,9 @@ android {
             jniLibs.srcDir("libs/release")
         }
     }
-    packagingOptions {
+    packaging {
         jniLibs {
             keepDebugSymbols.add("**.so")
         }
-    }
-    buildFeatures {
-        aidl = false
-        buildConfig = false
-        compose = false
-        prefab = false
-        renderScript = false
-        resValues = false
-        shaders = false
-        viewBinding = false
     }
 }

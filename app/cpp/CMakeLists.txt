@@ -28,4 +28,3 @@ target_link_libraries(
         spdlog
         vulkan-wrapper
 )
-

@@ -1,7 +1,5 @@
 #include <android_native_app_glue.h>
 
-#include <shaders.hpp>
-
 #include "platform_data.hpp"
 #include "platform.hpp"
 
@@ -51,7 +49,6 @@ static void AppHandleCmd(struct android_app *app, int32_t cmd) {
 
 void android_main(struct android_app *app) {
   try {
-    LoadShaders();
     JNIEnv *env;
     app->activity->vm->AttachCurrentThread(&env, nullptr);
 
