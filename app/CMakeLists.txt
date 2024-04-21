@@ -9,6 +9,15 @@ set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
 add_subdirectory(meta_quest_openxr_loader)
 
+FetchContent_Declare(magic_enum
+        GIT_REPOSITORY https://github.com/Neargye/magic_enum.git
+        GIT_TAG v0.9.5
+        GIT_SHALLOW TRUE
+        GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(magic_enum)
+
+
 FetchContent_Declare(spdlog
         GIT_REPOSITORY https://github.com/gabime/spdlog.git
         GIT_TAG v1.13.0

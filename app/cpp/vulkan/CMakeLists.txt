@@ -9,6 +9,7 @@ add_library(vulkan-wrapper STATIC
         )
 
 target_link_libraries(vulkan-wrapper
+        magic_enum
         spdlog
         spirv-reflect-static
         vulkan

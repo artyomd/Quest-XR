@@ -3,6 +3,7 @@
 #include "platform.hpp"
 #include "graphics_plugin.hpp"
 #include "openxr_utils.hpp"
+#include "magic_enum.hpp"
 
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
@@ -92,7 +93,7 @@ inline XrReferenceSpaceCreateInfo GetXrReferenceSpaceCreateInfo(const std::strin
     reference_space_create_info.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
   } else {
     throw std::invalid_argument(fmt::format("Unknown reference space type '{}'",
-                                            reference_space_type_str.c_str()));
+                                            reference_space_type_str));
   }
   return reference_space_create_info;
 }
@@ -361,7 +362,7 @@ void OpenXrProgram::CreateVisualizedSpaces() {
     } else {
       spdlog::warn("Failed to create reference space {} with error {}",
                    visualized_space,
-                   res);
+                   magic_enum::enum_name(res));
     }
   }
 }
@@ -470,7 +471,7 @@ void OpenXrProgram::PollEvents() {
         break;
       case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING:
       default: {
-        spdlog::debug("Ignoring event type {}", event->type);
+        spdlog::debug("Ignoring event type {}", magic_enum::enum_name(event->type));
         break;
       }
     }
@@ -488,17 +489,17 @@ const XrEventDataBaseHeader *OpenXrProgram::TryReadNextEvent() {
     }
     return base_header;
   }
-  if (result == XR_EVENT_UNAVAILABLE) {
-    return nullptr;
+  if (result != XR_EVENT_UNAVAILABLE) {
+    spdlog::error("xr pull event unknown result: {}", magic_enum::enum_name(result));
   }
-  spdlog::error("xr pull event unknown result: {}", result);
+  return nullptr;
 }
 
 void OpenXrProgram::HandleSessionStateChangedEvent(const XrEventDataSessionStateChanged &state_changed_event) {
 
   spdlog::info("XrEventDataSessionStateChanged: state {}->{} time={}",
-               session_state_,
-               state_changed_event.state,
+               magic_enum::enum_name(session_state_),
+               magic_enum::enum_name(state_changed_event.state),
                state_changed_event.time);
 
   if ((state_changed_event.session != XR_NULL_HANDLE)
@@ -667,7 +668,8 @@ bool OpenXrProgram::RenderLayer(XrTime predicted_display_time,
             {0.25f, 0.25f, 0.25f}});
       }
     } else {
-      spdlog::debug("Unable to locate a visualized reference space in app space: {}", res);
+      spdlog::debug("Unable to locate a visualized reference space in app space: {}",
+                    magic_enum::enum_name(res));
     }
   }
 
@@ -692,7 +694,7 @@ bool OpenXrProgram::RenderLayer(XrTime predicted_display_time,
         const char *hand_name[] = {"left", "right"};
         spdlog::debug("Unable to locate {} hand action space in app space: {}",
                       hand_name[hand],
-                      res);
+                      magic_enum::enum_name(res));
       }
     }
   }

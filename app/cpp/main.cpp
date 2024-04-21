@@ -5,6 +5,7 @@
 
 #include "openxr_program.hpp"
 
+#include <spdlog/sinks/android_sink.h>
 #include <spdlog/spdlog.h>
 
 struct AndroidAppState {
@@ -49,6 +50,10 @@ static void AppHandleCmd(struct android_app *app, int32_t cmd) {
 
 void android_main(struct android_app *app) {
   try {
+    auto android_logger = spdlog::android_logger_mt("android", "spdlog-android");
+    android_logger->set_level(spdlog::level::info);
+    spdlog::set_default_logger(android_logger);
+
     JNIEnv *env;
     app->activity->vm->AttachCurrentThread(&env, nullptr);
 

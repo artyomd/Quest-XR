@@ -1,14 +1,13 @@
 #include "vulkan_utils.hpp"
-
 #include <stdexcept>
 
+#include <magic_enum.hpp>
 #include <spdlog/fmt/fmt.h>
-#include <spdlog/spdlog.h>
 
 void vulkan::CheckResult(VkResult result, const std::string &file, uint32_t line) {
   if (result != VK_SUCCESS) [[unlikely]] {
-    throw std::runtime_error(fmt::format("call failed with error {:#x} {}:{}\n",
-                                         result,
+    throw std::runtime_error(fmt::format("call failed with error {} {}:{}\n",
+                                         magic_enum::enum_name(result),
                                          file,
                                          line));
   }

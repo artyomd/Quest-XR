@@ -26,6 +26,7 @@ target_link_libraries(
         meta_quest_openxr_loader
         OpenXR::headers
         shaders
+        magic_enum
         spdlog
         vulkan-wrapper
 )

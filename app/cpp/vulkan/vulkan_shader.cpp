@@ -1,5 +1,6 @@
 #include "vulkan_shader.hpp"
 
+#include <magic_enum.hpp>
 #include <spdlog/fmt/fmt.h>
 
 vulkan::VulkanShader::VulkanShader(const std::shared_ptr<VulkanRenderingContext> &context,
@@ -42,7 +43,8 @@ vulkan::VulkanShader::VulkanShader(const std::shared_ptr<VulkanRenderingContext>
                                                            nullptr);
 
   if (result != SPV_REFLECT_RESULT_SUCCESS)[[unlikely]] {
-    throw std::runtime_error(fmt::format("spirv reflect failed with error {:#x}\n", result));
+    throw std::runtime_error(fmt::format("spirv reflect failed with error {}\n",
+                                         magic_enum::enum_name(result)));
   }
 
   std::vector<SpvReflectBlockVariable *> blocks(count);
@@ -52,7 +54,8 @@ vulkan::VulkanShader::VulkanShader(const std::shared_ptr<VulkanRenderingContext>
                                                            blocks.data());
 
   if (result != SPV_REFLECT_RESULT_SUCCESS)[[unlikely]] {
-    throw std::runtime_error(fmt::format("spirv reflect failed with error {:#x}\n", result));
+    throw std::runtime_error(fmt::format("spirv reflect failed with error {}\n",
+                                         magic_enum::enum_name(result)));
   }
 
   for (const auto &block: blocks) {

@@ -1,5 +1,6 @@
 #include "openxr_utils.hpp"
 
+#include <magic_enum.hpp>
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 
@@ -7,8 +8,8 @@
 
 void CheckResult(XrResult result, const std::string &file, uint32_t line) {
   if (XR_FAILED(result)) [[unlikely]] {
-    throw std::runtime_error(fmt::format("call failed with error {:#x} {}:{}\n",
-                                         result,
+    throw std::runtime_error(fmt::format("call failed with error {} {}:{}\n",
+                                         magic_enum::enum_name(result),
                                          file,
                                          line));
   }
