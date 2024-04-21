@@ -21,6 +21,9 @@ android {
             }
         }
     }
+    lint {
+        disable.add("ExpiredTargetSdkVersion")
+    }
     buildTypes {
         getByName("release") {
             isDebuggable = false
