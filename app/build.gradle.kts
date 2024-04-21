@@ -3,7 +3,7 @@ plugins {
 }
 android {
     compileSdk = 32
-    ndkVersion = "26.1.10909125"
+    ndkVersion = "26.3.11579264"
     namespace = "app.artyomd.questxr"
     defaultConfig {
         minSdk = 32

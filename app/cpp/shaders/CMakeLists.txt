@@ -1,10 +1,4 @@
-IF (WIN32)
-  set(glslc_exe "${CMAKE_ANDROID_NDK}/shader-tools/${CMAKE_ANDROID_NDK_TOOLCHAIN_HOST_TAG}/glslc.exe")
-ELSE()
-  set(glslc_exe "${CMAKE_ANDROID_NDK}/shader-tools/${CMAKE_ANDROID_NDK_TOOLCHAIN_HOST_TAG}/glslc")
-ENDIF()
-
-message(STATUS "${glslc_exe}")
+set(glslc_exe "${CMAKE_ANDROID_NDK}/shader-tools/${CMAKE_ANDROID_NDK_TOOLCHAIN_HOST_TAG}/glslc${TOOL_OS_SUFFIX}")
 
 #add spirv library
 #LIBRARY_NAME - string, name of output library target

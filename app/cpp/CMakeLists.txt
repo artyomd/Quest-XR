@@ -23,7 +23,8 @@ target_link_libraries(
         android
         glm
         native_app_glue
-        openxr_loader
+        meta_quest_openxr_loader
+        OpenXR::headers
         shaders
         spdlog
         vulkan-wrapper
